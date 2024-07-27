@@ -146,7 +146,12 @@ lazy val root212 = project.in(file("target/root212")).settings(publish / skip :=
 
 lazy val root213 = project
   .in(file("target/root213"))
-  .settings(publish / skip := true)
+  .settings(
+    publish / skip := true,
+    libraryDependencies ++= Seq(
+      "org.scalatest" %% "scalatest" % "3.2.15" % Test
+    )
+  )
   .aggregate(
     (projectsCommon.flatMap(p => List[ProjectReference](p.jvm, p.js, p.native)) ++
       List(
