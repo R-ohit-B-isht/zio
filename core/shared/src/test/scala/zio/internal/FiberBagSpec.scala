@@ -2,7 +2,8 @@ package zio.internal
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import zio.{Fiber, FiberId, UIO, Chunk, Exit, Trace, ZIO}
+import zio.{Fiber, FiberId, UIO, Chunk, Exit, Trace, ZIO, Runtime, Unsafe}
+import zio.test.TestAspect._
 
 class FiberBagSpec extends AnyFlatSpec with Matchers {
   // Mock Fiber class for testing
@@ -41,10 +42,10 @@ class FiberBagSpec extends AnyFlatSpec with Matchers {
     val bag = new FiberBag()
     val fibers = (1 to 1000).map(i => new MockFiber(FiberId.None))
 
-    fibers.par.foreach(bag.add)
+    fibers.foreach(fiber => bag.add(fiber))
     bag.iterate().size should be(1000)
 
-    fibers.par.foreach(bag.remove)
+    fibers.foreach(fiber => bag.remove(fiber))
     bag.iterate().size should be(0)
   }
 
@@ -53,9 +54,28 @@ class FiberBagSpec extends AnyFlatSpec with Matchers {
     val fibers = (1 to 1000).map(i => new MockFiber(FiberId.None))
 
     fibers.foreach(bag.add)
-    val iteratedFibers = bag.iterate().par.toList
+    val iteratedFibers = bag.iterate().toList
 
     iteratedFibers.size should be(1000)
     iteratedFibers should contain allElementsOf fibers
   }
+
+  it should "support concurrent operations using ZIO" in {
+    val runtime = Runtime.default
+    Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe.run(
+        for {
+          bag <- ZIO.succeed(new FiberBag())
+          fibers <- ZIO.foreach(1 to 1000)(_ => ZIO.succeed(new MockFiber(FiberId.None)))
+          _ <- ZIO.foreachParDiscard(fibers)(fiber => ZIO.succeed(bag.add(fiber)))
+          size <- ZIO.succeed(bag.iterate().size)
+          _ <- ZIO.foreachParDiscard(fibers)(fiber => ZIO.succeed(bag.remove(fiber)))
+          finalSize <- ZIO.succeed(bag.iterate().size)
+        } yield {
+          size should be(1000)
+          finalSize should be(0)
+        }
+      ).getOrThrowFiberFailure()
+    }
+  } @@ timeout(5.seconds)
 }
