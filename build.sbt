@@ -20,6 +20,11 @@ inThisBuild(
         "john@degoes.net",
         url("http://degoes.net")
       )
+    ),
+    libraryDependencies ++= Seq(
+      "org.scalatest" %% "scalatest" % "3.2.15" % Test,
+      "org.scalatest" %% "scalatest-flatspec" % "3.2.15" % Test,
+      "org.scalatest" %% "scalatest-matchers-core" % "3.2.15" % Test
     )
   )
 )
