@@ -4,13 +4,18 @@ import java.util.concurrent.ConcurrentHashMap
 import java.lang.ref.{WeakReference, ReferenceQueue}
 import scala.jdk.CollectionConverters._
 import zio.{Fiber, FiberId}
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class FiberBag {
   private val fibers = new ConcurrentHashMap[FiberId, WeakReference[Fiber[_, _]]]()
   private val referenceQueue = new ReferenceQueue[Fiber[_, _]]()
+  private val scheduler = Executors.newScheduledThreadPool(1)
+
+  // Schedule cleanUp to run at regular intervals
+  scheduler.scheduleAtFixedRate(() => cleanUp(), 1, 1, TimeUnit.MINUTES)
 
   def add(fiber: Fiber[_, _]): Unit = {
-    cleanUp()
     fibers.put(fiber.id, new WeakReference(fiber, referenceQueue))
   }
 
